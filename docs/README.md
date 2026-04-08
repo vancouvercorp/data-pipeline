@@ -2,127 +2,81 @@
 
 ## Overview
 
-The **Data Pipeline** service is responsible for ETL (Extract, Transform, Load) processing and data transformation across the organization. It handles scheduled data ingestion, transformation, and delivery to downstream systems.
+The Data Pipeline service is responsible for ingesting, transforming, and delivering data across the TechCorp platform. This document provides an up-to-date guide for developers and operators.
 
 ## Architecture
 
 ```
-[Data Sources] --> [Ingestion Layer] --> [Transform Engine] --> [Sink Layer] --> [Destinations]
-                          |                     |                    |
-                     [Queue/Buffer]      [State Store]        [Dead Letter Queue]
+[Source Systems] → [Ingestion Layer] → [Transform Layer] → [Sink Layer] → [Consumers]
 ```
 
-### Key Components
+### Components
 
-- **Ingestion Layer**: Connects to upstream data sources (databases, APIs, file storage).
-- **Transform Engine**: Applies configurable transformation pipelines to incoming data.
-- **Sink Layer**: Writes processed data to configured destinations (S3, Snowflake, Postgres).
-- **Orchestrator**: Manages scheduling, retries, and pipeline dependencies.
+1. **Ingestion Layer** — Accepts data from upstream sources via REST API and message queue subscribers.
+2. **Transform Layer** — Applies business rules, schema validation, and enrichment.
+3. **Sink Layer** — Writes processed data to the target data stores (Postgres, S3, Elasticsearch).
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Docker & Docker Compose
-- Access to the organization's container registry
+- Access to the TechCorp container registry
 
-### Local Setup
+### Local Development
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/techcorp/data-pipeline.git
-   cd data-pipeline
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/TechCorp/data-pipeline.git
+cd data-pipeline
 
-2. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
+# Start dependencies
+docker compose up -d
 
-3. Start the local stack:
-   ```bash
-   docker-compose up -d
-   ```
-
-4. Run a test pipeline:
-   ```bash
-   make run-pipeline pipeline=example-test
-   ```
-
-### Configuration
-
-Pipeline configurations are defined in YAML files under `config/pipelines/`. Each pipeline config specifies:
-
-- **source**: The upstream data source and connection parameters.
-- **transform**: A sequence of transformation steps to apply.
-- **sink**: The destination for processed output.
-- **schedule**: Cron expression for automated runs.
-
-Example:
-```yaml
-name: daily-user-sync
-source:
-  type: postgres
-  connection: user_db
-  query: "SELECT * FROM users WHERE updated_at > NOW() - INTERVAL '1 day'"
-transform:
-  - type: filter_nulls
-    columns: [email, name]
-  - type: rename_columns
-    mapping:
-      user_id: id
-      full_name: name
-sink:
-  type: s3
-  bucket: processed-data
-  prefix: users/
-  format: parquet
-schedule: "0 2 * * *"
+# Run the pipeline locally
+make run
 ```
 
-## Pipeline Development Guide
+### Running Tests
 
-### Adding a New Pipeline
+```bash
+make test
+```
 
-1. Create a new YAML config in `config/pipelines/`.
-2. Implement any custom transforms in `transforms/`.
-3. Add unit tests in `tests/`.
-4. Validate locally using `make validate pipeline=<name>`.
-5. Submit a pull request for review.
+## Configuration
 
-### Best Practices
+Environment variables are used for all runtime configuration. See `.env.example` for a full list.
 
-- **Idempotency**: Pipelines should produce the same output when run with the same input data.
-- **Error Handling**: Use retry logic with exponential backoff for transient failures.
-- **Logging**: Use structured logging (JSON) for all pipeline events.
-- **Data Validation**: Validate schema and data types at ingestion and before writing to sinks.
-
-## Monitoring & Alerting
-
-- **Dashboard**: Access the pipeline health dashboard at the internal monitoring URL.
-- **Alerts**: Pipeline failures and SLA breaches trigger PagerDuty alerts routed to the on-call engineer.
-- **Metrics**: Key metrics (throughput, latency, error rate) are exported to Prometheus and visualized in Grafana.
+| Variable | Description | Default |
+|---|---|---|
+| `PIPELINE_BATCH_SIZE` | Number of records per batch | `500` |
+| `PIPELINE_WORKERS` | Parallel worker count | `4` |
+| `SINK_POSTGRES_URL` | Postgres connection string | — |
+| `SINK_S3_BUCKET` | Target S3 bucket name | — |
 
 ## Deployment
 
-| Branch      | Environment |
-|-------------|-------------|
-| `main`      | Production  |
-| `staging`   | Staging     |
-| `dev/*`     | Development |
+Deployment is managed via the CI/CD pipeline. Merges to `main` trigger an automatic deployment to staging. Production deployments require manual approval.
 
-Merge to `main` triggers an automatic production deployment after passing all checks.
+## Monitoring & Alerts
+
+- **Metrics**: Published to CloudWatch under the `TechCorp/DataPipeline` namespace.
+- **Logs**: Structured JSON logs shipped to CloudWatch Logs.
+- **Alerts**: PagerDuty alerts are configured for error-rate spikes and latency thresholds.
 
 ## Contributing
 
 1. Create a feature branch from `main`.
-2. Make your changes with appropriate tests.
-3. Open a pull request and tag a reviewer.
-4. Ensure all CI checks pass before merging.
+2. Open a pull request with a clear description of changes.
+3. Ensure all CI checks pass before requesting review.
+4. At least one approval from a platform team member is required.
 
-## Support
+## Contacts
 
-- **Team**: Product Engineering
-- **Slack Channel**: `#data-pipeline`
-- **On-call**: See PagerDuty schedule
+- **Platform Team Lead**: Carol Williams
+- **On-Call Rotation**: See PagerDuty schedule `data-pipeline-oncall`
+
+---
+
+_Last updated: 2025-07-09 by Bob Martinez_
